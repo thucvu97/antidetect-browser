@@ -1,10 +1,15 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
+import { ProfileCreationOptions } from 'cloak-stealth';
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 export type Channels = 'ipc-example';
 
 const electronHandler = {
+  create: (profileOptions: ProfileCreationOptions) =>
+    ipcRenderer.invoke('create-profile', profileOptions),
+  start: (newProfileId: string) => ipcRenderer.invoke('start', newProfileId),
+  getAllProfiles: () => ipcRenderer.invoke('get-all-profile'),
   ipcRenderer: {
     sendMessage(channel: Channels, ...args: unknown[]) {
       ipcRenderer.send(channel, ...args);

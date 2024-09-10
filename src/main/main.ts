@@ -8,12 +8,15 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import CloakAPIManager, { CloakAPIManagerConstructor } from 'cloak-stealth';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import log from 'electron-log';
+import { autoUpdater } from 'electron-updater';
+import path from 'path';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+
+let cloakManager: CloakAPIManagerConstructor;
 
 class AppUpdater {
   constructor() {
@@ -75,6 +78,8 @@ const createWindow = async () => {
     height: 728,
     icon: getAssetPath('icon.png'),
     webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: true,
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
@@ -123,10 +128,23 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+const initializeCloakManager = () => {
+  cloakManager = new CloakAPIManager({
+    apiKey: 'xxxx',
+    extensions: [],
+    windowOptions: { cols: 1, rows: 1 },
+    clearCacheAndHistory: true,
+    turnstile: true,
+    advancedStealthMode: true,
+  });
+};
 
 app
   .whenReady()
   .then(() => {
+    if (!cloakManager) {
+      initializeCloakManager();
+    }
     createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
@@ -135,3 +153,31 @@ app
     });
   })
   .catch(console.log);
+
+ipcMain.handle('create-profile', async (event, profileOptions) => {
+  try {
+    return await cloakManager.create(profileOptions);
+  } catch (error) {
+    console.error('Error in create-profile:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('get-all-profile', async () => {
+  try {
+    return await cloakManager.getAllProfiles();
+  } catch (error) {
+    console.error('Error in get-profile-data:', error);
+    throw error;
+  }
+});
+ipcMain.handle('start', async (event, newProfileId) => {
+  try {
+    return await cloakManager.start({
+      profileId: newProfileId,
+    });
+  } catch (error) {
+    console.error('Error in get-profile-data:', error);
+    throw error;
+  }
+});
