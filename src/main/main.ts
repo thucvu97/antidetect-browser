@@ -130,11 +130,29 @@ app.on('window-all-closed', () => {
 });
 const initializeCloakManager = () => {
   cloakManager = new CloakAPIManager({
-    apiKey: 'lsk_3159f14d244956df9c1af13522bd6efad9960981f1c02402',
+    apiKey: 'xxx',
     windowOptions: { cols: 1, rows: 1 },
     clearCacheAndHistory: true,
     turnstile: true,
     advancedStealthMode: true,
+  });
+};
+export const registerIPCHandlers = (
+  cloakAPIManager: CloakAPIManagerConstructor | any,
+) => {
+  const methods = Object.getOwnPropertyNames(CloakAPIManager.prototype).filter(
+    (method) => method !== 'constructor',
+  ); // Exclude constructor
+
+  methods.forEach((method) => {
+    ipcMain.handle(method, async (event, ...args) => {
+      try {
+        return await cloakAPIManager[method](...args);
+      } catch (error) {
+        console.error(`Error in ${method}:`, error);
+        throw error;
+      }
+    });
   });
 };
 
@@ -143,6 +161,7 @@ app
   .then(() => {
     if (!cloakManager) {
       initializeCloakManager();
+      registerIPCHandlers(cloakManager);
     }
     createWindow();
     app.on('activate', () => {
@@ -153,30 +172,30 @@ app
   })
   .catch(console.log);
 
-ipcMain.handle('create-profile', async (event, profileOptions) => {
-  try {
-    return await cloakManager.create(profileOptions);
-  } catch (error) {
-    console.error('Error in create-profile:', error);
-    throw error;
-  }
-});
+// ipcMain.handle('create-profile', async (event, profileOptions) => {
+//   try {
+//     return await cloakManager.create(profileOptions);
+//   } catch (error) {
+//     console.error('Error in create-profile:', error);
+//     throw error;
+//   }
+// });
 
-ipcMain.handle('get-all-profile', async () => {
-  try {
-    return await cloakManager.getAllProfiles();
-  } catch (error) {
-    console.error('Error in get-profile-data:', error);
-    throw error;
-  }
-});
-ipcMain.handle('start', async (event, newProfileId) => {
-  try {
-    return await cloakManager.start({
-      profileId: newProfileId,
-    });
-  } catch (error) {
-    console.error('Error in get-profile-data:', error);
-    throw error;
-  }
-});
+// ipcMain.handle('get-all-profile', async () => {
+//   try {
+//     return await cloakManager.getAllProfiles();
+//   } catch (error) {
+//     console.error('Error in get-profile-data:', error);
+//     throw error;
+//   }
+// });
+// ipcMain.handle('start', async (event, newProfileId) => {
+//   try {
+//     return await cloakManager.start({
+//       profileId: newProfileId,
+//     });
+//   } catch (error) {
+//     console.error('Error in get-profile-data:', error);
+//     throw error;
+//   }
+// });
