@@ -1,8 +1,8 @@
 import { ProfileCreationOptions } from 'cloak-stealth';
 import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
-import icon from '../../assets/icon.svg';
 
 import './App.css';
+import '../styles/global.css';
 
 function Hello() {
   const getAllProfiles = async () => {
@@ -39,41 +39,15 @@ function Hello() {
   };
   return (
     <div>
-      <div className="Hello">
-        <img width="200" alt="icon" src={icon} />
-        <button type="button" onClick={createProfile}>
-          Create Profile
-        </button>
-        <button type="button" onClick={start}>
-          Start Profile
-        </button>
-      </div>
-      <h1>electron-react-boilerplate</h1>
-      <div className="Hello">
-        <a
-          href="https://electron-react-boilerplate.js.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="books">
-              📚
-            </span>
-            Read our docs
-          </button>
-        </a>
-        <a
-          href="https://github.com/sponsors/electron-react-boilerplate"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="folded hands">
-              🙏
-            </span>
-            Donate
-          </button>
-        </a>
+      <div className="space-y-4">
+        <div className="w-96 bg-white shadow rounded px-2">w-96</div>
+        <div className="w-80 bg-white shadow rounded">w-80</div>
+        <div className="w-72 bg-white shadow rounded">w-72</div>
+        <div className="w-64 bg-white shadow rounded">w-64</div>
+        <div className="w-60 bg-white shadow rounded">w-60</div>
+        <div className="w-56 bg-white shadow rounded">w-56</div>
+        <div className="w-52 bg-white shadow rounded">w-52</div>
+        <div className="w-48 bg-white shadow rounded">w-48</div>
       </div>
     </div>
   );

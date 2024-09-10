@@ -130,8 +130,7 @@ app.on('window-all-closed', () => {
 });
 const initializeCloakManager = () => {
   cloakManager = new CloakAPIManager({
-    apiKey: 'xxxx',
-    extensions: [],
+    apiKey: 'lsk_3159f14d244956df9c1af13522bd6efad9960981f1c02402',
     windowOptions: { cols: 1, rows: 1 },
     clearCacheAndHistory: true,
     turnstile: true,
