@@ -21,6 +21,8 @@ module.exports = {
     'react/function-component-definition': 'off',
     'consistent-return': 'off',
     'react-hooks/exhaustive-deps': 'off',
+    'no-use-before-define': 'off',
+    'react/no-unstable-nested-components': 'off',
   },
   parserOptions: {
     ecmaVersion: 2022,

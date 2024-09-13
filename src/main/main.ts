@@ -130,7 +130,7 @@ app.on('window-all-closed', () => {
 });
 const initializeCloakManager = () => {
   cloakManager = new CloakAPIManager({
-    apiKey: 'xxx',
+    apiKey: 'lsk_3159f14d244956df9c1af13522bd6efad9960981f1c02402',
     windowOptions: { cols: 1, rows: 1 },
     clearCacheAndHistory: true,
     turnstile: true,
@@ -159,11 +159,11 @@ export const registerIPCHandlers = (
 app
   .whenReady()
   .then(() => {
+    createWindow();
     if (!cloakManager) {
       initializeCloakManager();
       registerIPCHandlers(cloakManager);
     }
-    createWindow();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

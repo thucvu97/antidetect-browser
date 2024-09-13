@@ -1,58 +1,214 @@
-import { useCallback, useState } from 'react';
-
+import { useState, useCallback } from 'react';
 import {
   CloakAPIManagerConstructor,
   ProfileCreationOptions,
+  ProfileData,
+  PaginatedProfilesData,
+  BrowserConnection,
+  ProxyData,
 } from 'cloak-stealth';
 
 const CloakManager = window.electron as CloakAPIManagerConstructor;
 
 const useCloakAPI = () => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const getAllProfiles = useCallback(async () => {
-    setLoading(true);
-    try {
-      const profileIds = await CloakManager.getAllProfiles();
-      return profileIds;
-    } catch (error) {
-      console.error('Error retrieving profiles:', error);
-    } finally {
-      setLoading(false);
-    }
+  const [loadingCount, setLoadingCount] = useState<number>(0);
+  const [profileLoadingStates, setProfileLoadingStates] = useState<
+    Record<string, boolean>
+  >({});
+  const [profiles, setProfiles] = useState<ProfileData[]>([]);
+  const [paginationData, setPaginationData] = useState<
+    Omit<PaginatedProfilesData, 'profiles'>
+  >({
+    total: 0,
+    page: 1,
+    limit: 50,
+    totalPages: 0,
+  });
+  const [activeBrowsers, setActiveBrowsers] = useState<
+    { profileId: string; isConnected: boolean }[]
+  >([]);
+
+  const incrementLoading = useCallback(() => {
+    setLoadingCount((prev) => prev + 1);
   }, []);
 
-  const start = useCallback(async (profileId: string) => {
-    setLoading(true);
-    try {
-      console.log('start', profileId);
-      await CloakManager.start({ profileId });
-    } catch (error) {
-      console.error('Error starting profile:', error);
-    } finally {
-      setLoading(false);
-    }
+  const decrementLoading = useCallback(() => {
+    setLoadingCount((prev) => Math.max(0, prev - 1));
   }, []);
 
-  const createProfile = useCallback(async () => {
-    const profileOptions: ProfileCreationOptions = {
-      name: 'Test Profile',
-      os: 'win',
-      canvas: { mode: 'noise', noise: 0.5 },
-    };
+  const getAllProfiles = useCallback(
+    async (page: number = 1, limit: number = 50) => {
+      incrementLoading();
+      try {
+        const data = await CloakManager.getAllProfiles(page, limit);
+        console.log('Received profiles data:', data);
+        if (data && Array.isArray(data.profiles)) {
+          setProfiles(data.profiles);
+          setPaginationData({
+            total: data.total,
+            page: data.page,
+            limit: data.limit,
+            totalPages: data.totalPages,
+          });
+        } else {
+          setProfiles([]);
+        }
+        return data;
+      } catch (error) {
+        console.error('Error retrieving profiles:', error);
+        setProfiles([]);
+        return [];
+      } finally {
+        decrementLoading();
+      }
+    },
+    [incrementLoading, decrementLoading],
+  );
 
-    setLoading(true);
+  const createProfile = useCallback(
+    async (options: ProfileCreationOptions) => {
+      incrementLoading();
+      try {
+        const profileId = await CloakManager.create(options);
+        await getAllProfiles();
+        return profileId;
+      } catch (error) {
+        console.error('Error creating profile:', error);
+      } finally {
+        decrementLoading();
+      }
+    },
+    [getAllProfiles, incrementLoading, decrementLoading],
+  );
+
+  const deleteAllProfiles = useCallback(
+    async (profileIds: string[]) => {
+      incrementLoading();
+      try {
+        console.log('Deleting profiles:', profileIds);
+        const results = await CloakManager.deleteAllProfiles(profileIds);
+        console.log('Deletion results:', results);
+        await getAllProfiles(); // Refresh the profiles list
+        return results;
+      } catch (error) {
+        console.error('Error deleting profiles:', error);
+        throw error; // Re-throw the error so it can be handled by the component
+      } finally {
+        decrementLoading();
+      }
+    },
+    [getAllProfiles, incrementLoading, decrementLoading],
+  );
+
+  const deleteProfile = useCallback(
+    async (profileId: string) => {
+      incrementLoading();
+      try {
+        const result = await CloakManager.delete(profileId);
+        await getAllProfiles();
+        return result;
+      } catch (error) {
+        console.error('Error deleting profile:', error);
+      } finally {
+        decrementLoading();
+      }
+    },
+    [getAllProfiles, incrementLoading, decrementLoading],
+  );
+
+  const updateProfile = useCallback(
+    async (profileId: string, options: Partial<ProfileData>) => {
+      incrementLoading();
+      try {
+        const updatedProfile = await CloakManager.updateProfile(
+          profileId,
+          options,
+        );
+        await getAllProfiles();
+        return updatedProfile;
+      } catch (error) {
+        console.error('Error updating profile:', error);
+      } finally {
+        decrementLoading();
+      }
+    },
+    [getAllProfiles, incrementLoading, decrementLoading],
+  );
+
+  const changeProfileProxy = useCallback(
+    async (profileId: string, proxyData: ProxyData) => {
+      incrementLoading();
+      try {
+        await CloakManager.changeProfileProxy(profileId, proxyData);
+        await getAllProfiles();
+      } catch (error) {
+        console.error('Error changing profile proxy:', error);
+      } finally {
+        decrementLoading();
+      }
+    },
+    [getAllProfiles, incrementLoading, decrementLoading],
+  );
+
+  const getActiveBrowserSessions = useCallback(async () => {
     try {
-      const profileId = await CloakManager.create(profileOptions);
-      console.log('profileId', profileId);
-      await start(profileId);
+      const activeSessions = await CloakManager.getAllActiveBrowserSessions();
+      setActiveBrowsers(activeSessions);
+      return activeSessions;
     } catch (error) {
-      console.error('Error creating profile:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error getting active browser sessions:', error);
     }
-  }, [start]);
+  }, [incrementLoading, decrementLoading]);
 
-  return { getAllProfiles, start, createProfile, loading };
+  const start = useCallback(
+    async (profileId: string): Promise<BrowserConnection | void> => {
+      setProfileLoadingStates((prev) => ({ ...prev, [profileId]: true }));
+      try {
+        const result = await CloakManager.start({ profileId });
+        await getActiveBrowserSessions(); // Update active sessions after starting
+        return result;
+      } catch (error) {
+        console.error('Error starting profile:', error);
+      } finally {
+        setProfileLoadingStates((prev) => ({ ...prev, [profileId]: false }));
+      }
+    },
+    [getActiveBrowserSessions, incrementLoading, decrementLoading],
+  );
+
+  const closeBrowser = useCallback(
+    async (profileId: string) => {
+      setProfileLoadingStates((prev) => ({ ...prev, [profileId]: true }));
+      incrementLoading();
+      try {
+        await CloakManager.closeBrowser(profileId);
+        await getActiveBrowserSessions();
+      } catch (error) {
+        console.error('Error closing browser:', error);
+      } finally {
+        setProfileLoadingStates((prev) => ({ ...prev, [profileId]: false }));
+        decrementLoading();
+      }
+    },
+    [getActiveBrowserSessions, incrementLoading, decrementLoading],
+  );
+
+  return {
+    deleteAllProfiles,
+    getAllProfiles,
+    start,
+    createProfile,
+    deleteProfile,
+    updateProfile,
+    changeProfileProxy,
+    getActiveBrowserSessions,
+    closeBrowser,
+    loading: loadingCount > 0,
+    profiles,
+    paginationData,
+    activeBrowsers,
+    profileLoadingStates,
+  };
 };
 
 export default useCloakAPI;

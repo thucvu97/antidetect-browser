@@ -1,5 +1,3 @@
-'use client';
-
 import * as React from 'react';
 import {
   ColumnDef,
@@ -26,16 +24,17 @@ import {
 } from '@/components/ui/table';
 
 import { DataTablePagination } from '@/components/data-table-pagination';
-import { DataTableToolbar } from '@/components/data-table-toolbar';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onRowSelectionChange?: (selection: Record<string, boolean>) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onRowSelectionChange,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -44,6 +43,12 @@ export function DataTable<TData, TValue>({
     [],
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
+
+  React.useEffect(() => {
+    if (onRowSelectionChange) {
+      onRowSelectionChange(rowSelection);
+    }
+  }, [rowSelection, onRowSelectionChange]);
 
   const table = useReactTable({
     data,
@@ -69,7 +74,6 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar table={table} />
       <div className="rounded-md border">
         <Table>
           <TableHeader>

@@ -13,7 +13,8 @@
   "license": "MIT",
   "main": "./.erb/dll/main.bundle.dev.js",
   "scripts": {
-    "build": "concurrently \"npm run build:main\" \"npm run build:renderer\"",
+    "build": "npm run build:css && concurrently \"npm run build:main\" \"npm run build:renderer\"",
+    "build:css": "tailwindcss -i ./styles/global.css -o ./styles/tailwind.css",
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
@@ -91,8 +92,9 @@
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.0.2",
     "@tanstack/react-table": "^8.13.2",
+    "@vertx/core": "^4.5.1",
     "class-variance-authority": "^0.7.0",
-    "cloak-stealth": "^1.3.6",
+    "cloak-stealth": "^1.4.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "electron-debug": "^3.2.0",
@@ -175,10 +177,12 @@
     "webpack-merge": "^5.9.0"
   },
   "build": {
-    "productName": "ElectronReact",
-    "appId": "org.erb.ElectronReact",
+    "productName": "CloakStealth",
+    "appId": "org.erb.CloakStealth",
     "asar": true,
-    "asarUnpack": "**\\*.{node,dll}",
+    "asarUnpack": [
+      "**\\*.{node,dll}"
+    ],
     "files": [
       "dist",
       "node_modules",
@@ -238,9 +242,6 @@
       "owner": "electron-react-boilerplate",
       "repo": "electron-react-boilerplate"
     }
-  },
-  "collective": {
-    "url": "https://opencollective.com/electron-react-boilerplate-594"
   },
   "devEngines": {
     "node": ">=14.x",
