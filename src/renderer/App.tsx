@@ -3,14 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import useCloakAPI from '@/hooks/useCloakAPI';
 import { ColumnDef } from '@tanstack/react-table';
-import { ProfileData } from 'cloak-stealth';
+import { BrowserStatusEvent, ProfileData } from 'cloak-stealth';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-type QueueOperation = {
-  type: 'start' | 'stop';
-  profileId: string;
-};
+type BrowserStatus = 'ready' | 'starting' | 'running';
 
 function Hello() {
   const {
@@ -21,40 +18,39 @@ function Hello() {
     deleteAllProfiles,
     loading,
     profiles,
-    getActiveBrowserSessions,
-    profileLoadingStates,
   } = useCloakAPI();
 
-  const [runningProfiles, setRunningProfiles] = useState<string[]>([]);
-  const [operationQueue, setOperationQueue] = useState<QueueOperation[]>([]);
-  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [browserStatuses, setBrowserStatuses] = useState<
+    Record<string, BrowserStatus>
+  >({});
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchAllProfile();
+
+    const unsubscribe = window.electron.ipcRenderer.onBrowserStatusUpdate(
+      ({
+        status,
+        profileId,
+      }: {
+        status: BrowserStatusEvent;
+        profileId: string;
+      }) => {
+        if (status === 'spawn') {
+          setBrowserStatuses((prev) => ({ ...prev, [profileId]: 'running' }));
+        } else if (status === 'close') {
+          setBrowserStatuses((prev) => ({ ...prev, [profileId]: 'ready' }));
+        }
+      },
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    if (operationQueue.length > 0 && !isProcessingQueue) {
-      processQueue();
-    }
-  }, [operationQueue, isProcessingQueue]);
-
   const fetchAllProfile = async () => {
-    getAllProfiles();
-    updateRunningProfiles();
-  };
-  const updateRunningProfiles = async () => {
-    try {
-      const activeSessions = await getActiveBrowserSessions();
-      if (activeSessions && Array.isArray(activeSessions)) {
-        setRunningProfiles(activeSessions.map((session) => session.profileId));
-      } else {
-        setRunningProfiles([]);
-      }
-    } catch (error) {
-      console.error('Error fetching active sessions:', error);
-    }
+    await getAllProfiles();
   };
 
   const handleCreateProfile = async () => {
@@ -66,33 +62,29 @@ function Hello() {
         canvas: { mode: 'noise' },
       });
       console.log('New profile created:', newProfileId);
+      fetchAllProfile();
     } catch (error) {
       console.error('Error creating profile:', error);
     }
   };
 
-  const queueOperation = useCallback((operation: QueueOperation) => {
-    setOperationQueue((prevQueue) => [...prevQueue, operation]);
-  }, []);
-
-  const processQueue = async () => {
-    if (operationQueue.length === 0) return;
-
-    setIsProcessingQueue(true);
-    const operation = operationQueue[0];
-
+  const handleStartProfile = async (profileId: string) => {
+    setBrowserStatuses((prev) => ({ ...prev, [profileId]: 'starting' }));
     try {
-      if (operation.type === 'start') {
-        await start(operation.profileId);
-      } else if (operation.type === 'stop') {
-        await closeBrowser(operation.profileId);
-      }
-      await updateRunningProfiles();
+      await start(profileId);
+      // Status will be updated to 'running' when we receive the 'spawn' event
     } catch (error) {
-      console.error(`Error processing operation: ${operation.type}`, error);
-    } finally {
-      setOperationQueue((prevQueue) => prevQueue.slice(1));
-      setIsProcessingQueue(false);
+      console.error('Error starting profile:', error);
+      setBrowserStatuses((prev) => ({ ...prev, [profileId]: 'ready' }));
+    }
+  };
+
+  const handleStopProfile = async (profileId: string) => {
+    try {
+      await closeBrowser(profileId);
+      // Status will be updated to 'ready' when we receive the 'close' event
+    } catch (error) {
+      console.error('Error stopping profile:', error);
     }
   };
 
@@ -163,14 +155,15 @@ function Hello() {
         header: 'Status',
         cell: ({ row }) => {
           const profile = row.original;
-          if (profileLoadingStates[profile.id]) {
-            return 'Loading...';
+          const status = browserStatuses[profile.id] || 'ready';
+          switch (status) {
+            case 'starting':
+              return <p className="text-yellow-500">Starting...</p>;
+            case 'running':
+              return <p className="text-green-500">Running</p>;
+            default:
+              return <p>Ready</p>;
           }
-          return runningProfiles.includes(profile.id) ? (
-            <p className="text-blue-500">Running...</p>
-          ) : (
-            'Ready'
-          );
         },
       },
       {
@@ -178,41 +171,35 @@ function Hello() {
         header: 'Actions',
         cell: ({ row }) => {
           const profile = row.original;
-          const isRunning = runningProfiles.includes(profile.id);
-          const isLoading = profileLoadingStates[profile.id];
-          return isRunning ? (
-            <Button
-              onClick={() =>
-                queueOperation({ type: 'stop', profileId: profile.id })
-              }
-              className="border-red-500 text-red-500 hover:bg-red-100 bg-red-100"
-              disabled={isLoading || isProcessingQueue}
-              size="sm"
-            >
-              {isLoading ? 'Stopping...' : 'Stop'}
-            </Button>
-          ) : (
-            <Button
-              onClick={() =>
-                queueOperation({ type: 'start', profileId: profile.id })
-              }
-              disabled={isProcessingQueue}
-              loading={isLoading}
-              size="sm"
-            >
-              {isLoading ? '' : 'Start'}
-            </Button>
-          );
+          const status = browserStatuses[profile.id] || 'ready';
+
+          if (status === 'running') {
+            return (
+              <Button
+                onClick={() => handleStopProfile(profile.id)}
+                className="border-red-500 text-red-500 hover:bg-red-100 bg-red-100"
+                size="sm"
+              >
+                Stop
+              </Button>
+            );
+          } else if (status === 'starting') {
+            return (
+              <Button disabled size="sm">
+                Starting...
+              </Button>
+            );
+          } else {
+            return (
+              <Button onClick={() => handleStartProfile(profile.id)} size="sm">
+                Start
+              </Button>
+            );
+          }
         },
       },
     ],
-    [
-      runningProfiles,
-      isProcessingQueue,
-      queueOperation,
-      profileLoadingStates,
-      selectedProfileIds,
-    ],
+    [browserStatuses, selectedProfileIds],
   );
 
   const onRowSelectionChange = useCallback(
@@ -234,10 +221,7 @@ function Hello() {
           </h2>
         </div>
         <div className="flex items-center space-x-2">
-          <Button
-            onClick={handleCreateProfile}
-            disabled={loading || isProcessingQueue}
-          >
+          <Button onClick={handleCreateProfile} disabled={loading}>
             Create New Profile
           </Button>
           <Button
@@ -247,7 +231,6 @@ function Hello() {
           >
             Delete Selected Profiles ({selectedProfileIds.length})
           </Button>
-          {/* <UserNav /> */}
         </div>
       </div>
       <div>
@@ -257,7 +240,7 @@ function Hello() {
           size="sm"
           disabled={loading}
         >
-          Refesh
+          Refresh
         </Button>
       </div>
       <div className="relative">

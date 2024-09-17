@@ -24,9 +24,6 @@ const useCloakAPI = () => {
     limit: 50,
     totalPages: 0,
   });
-  const [activeBrowsers, setActiveBrowsers] = useState<
-    { profileId: string; isConnected: boolean }[]
-  >([]);
 
   const incrementLoading = useCallback(() => {
     setLoadingCount((prev) => prev + 1);
@@ -150,22 +147,13 @@ const useCloakAPI = () => {
     [getAllProfiles, incrementLoading, decrementLoading],
   );
 
-  const getActiveBrowserSessions = useCallback(async () => {
-    try {
-      const activeSessions = await CloakManager.getAllActiveBrowserSessions();
-      setActiveBrowsers(activeSessions);
-      return activeSessions;
-    } catch (error) {
-      console.error('Error getting active browser sessions:', error);
-    }
-  }, [incrementLoading, decrementLoading]);
-
   const start = useCallback(
     async (profileId: string): Promise<BrowserConnection | void> => {
       setProfileLoadingStates((prev) => ({ ...prev, [profileId]: true }));
       try {
-        const result = await CloakManager.start({ profileId });
-        await getActiveBrowserSessions(); // Update active sessions after starting
+        const result = await CloakManager.start({
+          profileId,
+        });
         return result;
       } catch (error) {
         console.error('Error starting profile:', error);
@@ -173,7 +161,7 @@ const useCloakAPI = () => {
         setProfileLoadingStates((prev) => ({ ...prev, [profileId]: false }));
       }
     },
-    [getActiveBrowserSessions, incrementLoading, decrementLoading],
+    [incrementLoading, decrementLoading],
   );
 
   const closeBrowser = useCallback(
@@ -182,7 +170,6 @@ const useCloakAPI = () => {
       incrementLoading();
       try {
         await CloakManager.closeBrowser(profileId);
-        await getActiveBrowserSessions();
       } catch (error) {
         console.error('Error closing browser:', error);
       } finally {
@@ -190,7 +177,7 @@ const useCloakAPI = () => {
         decrementLoading();
       }
     },
-    [getActiveBrowserSessions, incrementLoading, decrementLoading],
+    [incrementLoading, decrementLoading],
   );
 
   return {
@@ -201,12 +188,10 @@ const useCloakAPI = () => {
     deleteProfile,
     updateProfile,
     changeProfileProxy,
-    getActiveBrowserSessions,
     closeBrowser,
     loading: loadingCount > 0,
     profiles,
     paginationData,
-    activeBrowsers,
     profileLoadingStates,
   };
 };

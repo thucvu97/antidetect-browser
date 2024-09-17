@@ -3,7 +3,7 @@
 import CloakAPIManager from 'cloak-stealth';
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example';
+export type Channels = 'ipc-example' | 'browser-status-update';
 
 // Dynamically get the method names from the CloakAPIManager prototype, excluding the constructor
 const ipcMethods = Object.getOwnPropertyNames(CloakAPIManager.prototype).filter(
@@ -15,11 +15,22 @@ const electronHandler: Record<string, any> = {};
 
 // Dynamically map the methods to ipcRenderer.invoke
 ipcMethods.forEach((method) => {
-  electronHandler[method] = (...args: any[]) =>
-    ipcRenderer.invoke(method, ...args); // The method name is used as the IPC channel
+  electronHandler[method] = async (...args: any[]) => {
+    try {
+      // Ensure arguments are serializable
+      const serializedArgs = JSON.parse(JSON.stringify(args));
+      // Invoke the IPC method
+      const result = await ipcRenderer.invoke(method, ...serializedArgs);
+      // Ensure the result is serializable
+      return JSON.parse(JSON.stringify(result));
+    } catch (error) {
+      console.error(`Error invoking ${method}:`, error);
+      throw error;
+    }
+  };
 });
 
-// Additional ipcRenderer utilities, like sendMessage, on, once
+// Additional ipcRenderer utilities, including onBrowserStatusUpdate
 electronHandler.ipcRenderer = {
   sendMessage(channel: Channels, ...args: unknown[]) {
     ipcRenderer.send(channel, ...args);
@@ -35,6 +46,22 @@ electronHandler.ipcRenderer = {
   },
   once(channel: Channels, func: (...args: unknown[]) => void) {
     ipcRenderer.once(channel, (_event, ...args) => func(...args));
+  },
+  onBrowserStatusUpdate(
+    callback: (data: {
+      status: string;
+      details: any;
+      profileId: string;
+    }) => void,
+  ) {
+    const subscription = (
+      _event: IpcRendererEvent,
+      data: { status: string; details: any; profileId: string },
+    ) => callback(data);
+    ipcRenderer.on('browser-status-update', subscription);
+    return () => {
+      ipcRenderer.removeListener('browser-status-update', subscription);
+    };
   },
 };
 

@@ -132,9 +132,20 @@ const initializeCloakManager = () => {
   cloakManager = new CloakAPIManager({
     apiKey: 'lsk_3159f14d244956df9c1af13522bd6efad9960981f1c02402',
     windowOptions: { cols: 1, rows: 1 },
-    clearCacheAndHistory: true,
     turnstile: true,
     advancedStealthMode: true,
+    browserStatusCallback: (status, profileId, details) => {
+      // Immediately send the status update to all renderer processes
+      BrowserWindow.getAllWindows().forEach((window) => {
+        if (!window.isDestroyed()) {
+          window.webContents.send('browser-status-update', {
+            status,
+            profileId,
+            details,
+          });
+        }
+      });
+    },
   });
 };
 export const registerIPCHandlers = (
@@ -147,7 +158,14 @@ export const registerIPCHandlers = (
   methods.forEach((method) => {
     ipcMain.handle(method, async (event, ...args) => {
       try {
-        return await cloakAPIManager[method](...args);
+        // Ensure arguments are JSON serializable
+        const serializedArgs = JSON.parse(JSON.stringify(args));
+
+        // Execute the method and return serializable results
+        const result = await cloakAPIManager[method](...serializedArgs);
+
+        // Make sure the result is serializable
+        return JSON.parse(JSON.stringify(result));
       } catch (error) {
         console.error(`Error in ${method}:`, error);
         throw error;
