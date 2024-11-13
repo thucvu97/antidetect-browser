@@ -8,6 +8,9 @@ This is a demo application of an antidetect browser using the cloak-stealth libr
 npm install cloak-stealth
 ```
 
+[Watch Demo Video](https://www.youtube.com/watch?v=GPwgbju9_P4)
+
+
 ## Demo Screenshots
 
 ![App Screenshot 1](assets/imgs/app1.png)
@@ -15,7 +18,6 @@ npm install cloak-stealth
 
 ## Demo Animation
 
-![Demo Animation](assets/imgs/demo.gif)
 
 ## Features
 
