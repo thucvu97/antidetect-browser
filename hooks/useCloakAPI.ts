@@ -8,7 +8,13 @@ import {
   ProxyData,
 } from 'cloak-stealth';
 
-const CloakManager = window.electron as CloakAPIManagerConstructor;
+const CloakManager = window.electron as CloakAPIManagerConstructor & {
+  ipcRenderer: {
+    startApp: (profileId: string) => Promise<void>;
+    closeBrowser: (profileId: string) => Promise<void>;
+    getAllProfiles: (page: number, limit: number) => Promise<void>;
+  };
+};
 
 const useCloakAPI = () => {
   const [loadingCount, setLoadingCount] = useState<number>(0);
@@ -37,7 +43,7 @@ const useCloakAPI = () => {
     async (page: number = 1, limit: number = 50) => {
       incrementLoading();
       try {
-        const data = await CloakManager.getAllProfiles(page, limit);
+        const data = await CloakManager.ipcRenderer.getAllProfiles(page, limit);
         console.log('Received profiles data:', data);
         if (data && Array.isArray(data.profiles)) {
           setProfiles(data.profiles);
@@ -151,10 +157,7 @@ const useCloakAPI = () => {
     async (profileId: string): Promise<BrowserConnection | void> => {
       setProfileLoadingStates((prev) => ({ ...prev, [profileId]: true }));
       try {
-        const result = await CloakManager.start({
-          profileId,
-        });
-        return result;
+        await CloakManager.ipcRenderer.startApp(profileId);
       } catch (error) {
         console.error('Error starting profile:', error);
       } finally {
@@ -169,7 +172,9 @@ const useCloakAPI = () => {
       setProfileLoadingStates((prev) => ({ ...prev, [profileId]: true }));
       incrementLoading();
       try {
-        await CloakManager.closeBrowser(profileId);
+        console.log('closeBrowser', profileId);
+        
+        await CloakManager.ipcRenderer.closeBrowser(profileId);
       } catch (error) {
         console.error('Error closing browser:', error);
       } finally {

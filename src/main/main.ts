@@ -16,6 +16,7 @@ import path from 'path';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
+
 let cloakManager: CloakAPIManagerConstructor;
 
 class AppUpdater {
@@ -130,7 +131,7 @@ app.on('window-all-closed', () => {
 });
 const initializeCloakManager = () => {
   cloakManager = new CloakAPIManager({
-    apiKey: 'lsk_3159f14d244956df9c1af13522bd6efad9960981f1c02402',
+    apiKey: process.env.CLOAK_API_KEY,
     windowOptions: { cols: 1, rows: 1 },
     turnstile: true,
     advancedStealthMode: true,
@@ -172,6 +173,26 @@ export const registerIPCHandlers = (
       }
     });
   });
+
+  ipcMain.handle('startApp', async (event, newProfileId) => {
+    try {
+      await cloakManager.start({
+        profileId: newProfileId,
+        autoClose: false,
+      });
+     
+    } catch (error) {
+      console.error('Error in get-profile-data:', error);
+      throw error;
+    }
+  });
+  ipcMain.handle('closeBrowser', async (event, profileId) => {
+    console.log('closeBrowser', profileId);
+    await cloakManager.closeBrowser(profileId);
+  });
+  ipcMain.handle('getAllProfiles', async (event, page, limit) => {
+    await cloakManager.getAllProfiles(page, limit);
+  });
 };
 
 app
@@ -189,31 +210,3 @@ app
     });
   })
   .catch(console.log);
-
-// ipcMain.handle('create-profile', async (event, profileOptions) => {
-//   try {
-//     return await cloakManager.create(profileOptions);
-//   } catch (error) {
-//     console.error('Error in create-profile:', error);
-//     throw error;
-//   }
-// });
-
-// ipcMain.handle('get-all-profile', async () => {
-//   try {
-//     return await cloakManager.getAllProfiles();
-//   } catch (error) {
-//     console.error('Error in get-profile-data:', error);
-//     throw error;
-//   }
-// });
-// ipcMain.handle('start', async (event, newProfileId) => {
-//   try {
-//     return await cloakManager.start({
-//       profileId: newProfileId,
-//     });
-//   } catch (error) {
-//     console.error('Error in get-profile-data:', error);
-//     throw error;
-//   }
-// });

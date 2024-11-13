@@ -63,6 +63,12 @@ electronHandler.ipcRenderer = {
       ipcRenderer.removeListener('browser-status-update', subscription);
     };
   },
+    startApp: (newProfileId: string) =>
+    ipcRenderer.invoke('startApp', newProfileId),
+    closeBrowser: (profileId: string) =>
+    ipcRenderer.invoke('closeBrowser', profileId),
+  getAllProfiles: (page: number, limit: number) =>
+    ipcRenderer.invoke('getAllProfiles', page, limit),
 };
 
 // Expose the handler in the main world
